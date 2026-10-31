@@ -1,0 +1,24 @@
+# Gateway + a couple of self-hosted backends. Runs on the AWS dev box, not the PC.
+# Heavy/GPU backends (whisper, image gen) get their own compose profile started on demand.
+services:
+  gateway:
+    build: .
+    ports:
+      - "8080:8080"
+    env_file: .env
+    restart: unless-stopped
+
+  # Example self-hosted backend the gateway proxies. Add more as tools land.
+  libretranslate:
+    image: libretranslate/libretranslate:latest
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+    profiles: ["lang"]
+
+  searxng:
+    image: searxng/searxng:latest
+    ports:
+      - "8888:8080"
+    restart: unless-stopped
+    profiles: ["web"]
