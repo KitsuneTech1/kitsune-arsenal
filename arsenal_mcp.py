@@ -75,6 +75,8 @@ def base64_tool(text: str, mode: str = "encode") -> dict:
     """Base64 encode or decode UTF-8 text. mode = encode | decode."""
     if mode == "encode":
         return {"result": base64.b64encode(text.encode()).decode()}
+    if mode != "decode":
+        raise ValueError("mode must be encode or decode")
     try:
         return {"result": base64.b64decode(text).decode("utf-8", "replace")}
     except binascii.Error as e:
@@ -84,7 +86,11 @@ def base64_tool(text: str, mode: str = "encode") -> dict:
 @mcp.tool()
 def url_encode(text: str, mode: str = "encode") -> dict:
     """URL percent-encode or decode text. mode = encode | decode."""
-    return {"result": quote(text) if mode == "encode" else unquote(text)}
+    if mode == "encode":
+        return {"result": quote(text)}
+    if mode == "decode":
+        return {"result": unquote(text)}
+    raise ValueError("mode must be encode or decode")
 
 
 @mcp.tool()
@@ -156,6 +162,8 @@ def color_convert(color: str) -> dict:
         if len(c) == 3:
             c = "".join(ch * 2 for ch in c)
         r, g, b = int(c[0:2], 16), int(c[2:4], 16), int(c[4:6], 16)
+    if any(value < 0 or value > 255 for value in (r, g, b)):
+        raise ValueError("RGB values must be between 0 and 255")
     return {"hex": f"#{r:02x}{g:02x}{b:02x}", "rgb": f"{r},{g},{b}", "r": r, "g": g, "b": b}
 
 

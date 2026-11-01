@@ -22,7 +22,7 @@ app/
   registry.py       tool registry (name -> spec + handler)
   tools/            domain-specific tool implementations
   mcp.py            MCP manifest generation
-arsenal_mcp.py      Standalone MCP server with 28+ tools
+arsenal_mcp.py      Standalone MCP server with 27 tools
 docker-compose.yml
 requirements.txt
 .env.example
@@ -42,6 +42,7 @@ Visit http://localhost:8000/tools to see available capabilities.
 ### Docker
 
 ```bash
+cp .env.example .env
 docker compose up
 ```
 
@@ -56,6 +57,7 @@ docker compose --profile lang --profile web up
 The `arsenal_mcp.py` runs as a standalone MCP endpoint:
 
 ```bash
+pip install -r requirements-mcp.txt
 ARSENAL_MCP_TOKEN=<token> python arsenal_mcp.py
 ```
 
