@@ -2,44 +2,31 @@
 
 # Kitsune Arsenal
 
-A self-hosted capability gateway that wraps local utilities and free public backends, exposing them as unified HTTP/MCP APIs.
+Keyless gateway for tools: wraps local utilities and free public APIs as HTTP and MCP endpoints.
 
-## Overview
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 
-Kitsune Arsenal is a FastAPI service that aggregates utilities across text/encoding, web/network, geolocation, and finance. Every gateway tool is either local or proxies a free public API.
+Kitsune Arsenal is a FastAPI service that aggregates utilities across text/encoding, web/network, geolocation, and finance. Every tool is either local or proxies a free public API. No proprietary keys required for core functionality.
 
-## Features
+## What's included
 
-- Registry-based tool system: add a tool by writing one entry
-- FastAPI HTTP endpoint: `/tools` listing and `/call/{tool}` invocation
+- Registry-based tool system: add a tool with one entry
+- HTTP endpoints: `/tools` listing, `/health` check, and `/call/{tool}` invocation
 - MCP (Model Context Protocol) manifest generation for agent integration
-- Optional LibreTranslate and SearXNG services in Docker Compose
-- Keyless design: no proprietary API keys required for core tools
+- 27 built-in tools covering text, encoding, web, network, geo, and finance
+- Optional LibreTranslate and SearXNG backends in Docker Compose
+- Bearer token authentication ready for edge deployment
 
-## Architecture
+## Quick start
 
-```
-app/
-  main.py           FastAPI server with HTTP endpoints
-  registry.py       tool registry (name -> spec + handler)
-  tools/            domain-specific tool implementations
-  mcp.py            MCP manifest generation
-arsenal_mcp.py      Standalone MCP server with 27 tools
-docker-compose.yml
-requirements.txt
-.env.example
-```
-
-## Getting Started
-
-### Local Development
+### HTTP gateway locally
 
 ```bash
 python -m pip install -r requirements.txt
 python -m uvicorn app.main:app
 ```
 
-Visit http://localhost:8000/tools to see available capabilities.
+Open http://localhost:8000/tools to list available tools. Call them via POST to `/call/{tool}` with a JSON body of tool parameters.
 
 ### Docker
 
@@ -48,50 +35,42 @@ cp .env.example .env
 docker compose up
 ```
 
-In PowerShell, use `Copy-Item .env.example .env` instead of `cp`.
+(On Windows, use `Copy-Item .env.example .env`.)
 
-Optional backends (libretranslate, searxng) can be started with:
+Gateway runs on port 8080. Add `--profile lang --profile web` to also start optional LibreTranslate and SearXNG services.
 
-```bash
-docker compose --profile lang --profile web up
-```
+### Standalone MCP server
 
-The optional services are included in the Compose file, but the current gateway tools do not call them.
-
-### Standalone MCP Server
-
-The `arsenal_mcp.py` runs as a standalone MCP endpoint:
+Run as a Model Context Protocol endpoint:
 
 ```bash
 python -m pip install -r requirements-mcp.txt
-# macOS or Linux
 ARSENAL_MCP_TOKEN=replace-with-a-token python arsenal_mcp.py
 ```
 
-In PowerShell:
+(On Windows: `$env:ARSENAL_MCP_TOKEN = "replace-with-a-token"`.)
 
-```powershell
-$env:ARSENAL_MCP_TOKEN = "replace-with-a-token"
-python arsenal_mcp.py
-```
+Server listens on `http://localhost:8810/mcp` and requires `Authorization: Bearer <token>`.
 
-Endpoint at `http://localhost:8810/mcp` with `Authorization: Bearer <token>`.
+## Tools
 
-## Tools Included
+Core 7 keyless tools run with no backend:
+- hash, UUID generation, URL slugify, current time, QR code generation, geocoding, FX rates
 
-- **Text & Encoding**: hash, UUID, slugify, base64/URL encoding, JSON validation/diffing
-- **Web & Network**: QR codes, URL expansion, HTTP headers, DNS, WHOIS, TLS certs, IP geolocation
-- **Geo & Finance**: geocoding, reverse geocoding, FX rates, cron parsing
-- **Utilities**: time, TOTP, JWT decode, passwords, color conversion, regex testing, entity extraction
+Full 27-tool set available in standalone MCP server, covering:
+- Text: hash, UUID, slugify, encoding (base64, URL), JSON validation/diffing
+- Web/Network: QR codes, URL expansion, HTTP headers, DNS, WHOIS, TLS cert inspection, IP geolocation
+- Geo/Finance: geocoding, reverse geocoding, FX rates, currency conversion, cron expression parsing
+- Utilities: time, TOTP, JWT decode, password generation, color conversion, regex testing, entity extraction
 
-## Adding Tools
+## Extend it
 
-Add a new tool to `app/tools/` or to the registry:
+Define a new tool in the registry:
 
 ```python
 register(Tool(
     name="my_tool",
-    summary="Brief description",
+    summary="What it does",
     category="Category",
     access="read",
     params={"param1": "description"},
@@ -99,11 +78,11 @@ register(Tool(
 ))
 ```
 
-The MCP manifest and HTTP listing update automatically.
+HTTP endpoints and MCP manifest regenerate automatically.
 
-## Deployment
+## Deploy
 
-Deploy behind Caddy with forward_auth for edge authentication. The app itself assumes auth is handled upstream.
+The gateway expects authentication at the edge (e.g., Caddy with Authentik forward_auth). No built-in auth; assumes trusted upstream.
 
 ## License
 
