@@ -1,3 +1,5 @@
+<p align="center"><a href="https://kitsunetechnologies.org/work"><img src="https://raw.githubusercontent.com/KitsuneTech1/.github/main/assets/kitsune-banner.svg" alt="Built by Kitsune Technologies" width="760"></a></p>
+
 # Kitsune Arsenal
 
 A self-hosted capability gateway that wraps local utilities and free public backends, exposing them as unified HTTP/MCP APIs.
@@ -105,4 +107,8 @@ Deploy behind Caddy with forward_auth for edge authentication. The app itself as
 
 ## License
 
-MIT
+MIT. Copyright (c) 2025-2026 Kitsune Technologies LLC. Do what you like with it, commercially or otherwise, just keep the copyright notice. Full text in [LICENSE](LICENSE).
+
+---
+
+<p align="center"><sub>Part of <b>Buildtober 2026</b>: 31 open source projects in 31 days. Built by <a href="https://kitsunetechnologies.org/work">Kitsune Technologies</a>. More at <a href="https://github.com/KitsuneTech1">github.com/KitsuneTech1</a>.</sub></p>
