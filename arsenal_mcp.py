@@ -15,6 +15,7 @@ import binascii
 import difflib
 import hashlib
 import io
+import ipaddress
 import json
 import os
 import re
@@ -24,7 +25,7 @@ import ssl
 import string
 import uuid as _uuid
 from datetime import datetime, timezone
-from urllib.parse import quote, unquote
+from urllib.parse import quote, unquote, urljoin, urlsplit
 
 import httpx
 from mcp.server.fastmcp import FastMCP
@@ -60,7 +61,12 @@ def hash_text(text: str, algo: str = "sha256") -> dict:
     """Hash text with any hashlib algorithm (sha256, sha1, md5, blake2b, sha3_256...)."""
     if algo not in hashlib.algorithms_available:
         raise ValueError(f"unknown algo: {algo}")
-    return {"algo": algo, "hex": hashlib.new(algo, text.encode()).hexdigest()}
+    digest = hashlib.new(algo, text.encode())
+    try:
+        value = digest.hexdigest()
+    except TypeError as e:
+        raise ValueError(f"algorithm requires an explicit digest length: {algo}") from e
+    return {"algo": algo, "hex": value}
 
 
 @mcp.tool()
@@ -78,7 +84,7 @@ def base64_tool(text: str, mode: str = "encode") -> dict:
     if mode != "decode":
         raise ValueError("mode must be encode or decode")
     try:
-        return {"result": base64.b64decode(text).decode("utf-8", "replace")}
+        return {"result": base64.b64decode(text, validate=True).decode("utf-8", "replace")}
     except binascii.Error as e:
         raise ValueError(f"not valid base64: {e}")
 
@@ -175,6 +181,8 @@ def password_gen(length: int = 20, kind: str = "password") -> dict:
                  "orbit", "meadow", "cinder", "willow", "pixel", "onyx", "saffron", "delta"]
         n = max(3, min(int(length), 12))
         return {"value": "-".join(secrets.choice(words) for _ in range(n)) + str(secrets.randbelow(100))}
+    if kind != "password":
+        raise ValueError("kind must be password or passphrase")
     length = max(8, min(int(length), 128))
     alpha = string.ascii_letters + string.digits + "!@#$%^&*-_=+"
     return {"value": "".join(secrets.choice(alpha) for _ in range(length))}
@@ -184,17 +192,79 @@ def password_gen(length: int = 20, kind: str = "password") -> dict:
 def jwt_decode(token: str) -> dict:
     """Decode a JWT header and payload without verifying the signature."""
     parts = token.split(".")
-    if len(parts) < 2:
+    if len(parts) != 3:
         raise ValueError("not a JWT")
 
     def _d(seg: str):
         seg += "=" * (-len(seg) % 4)
         return json.loads(base64.urlsafe_b64decode(seg))
 
-    return {"header": _d(parts[0]), "payload": _d(parts[1]), "signature_verified": False}
+    try:
+        header, payload = _d(parts[0]), _d(parts[1])
+    except (binascii.Error, UnicodeDecodeError, json.JSONDecodeError, ValueError, TypeError) as e:
+        raise ValueError("not a valid JWT") from e
+    return {"header": header, "payload": payload, "signature_verified": False}
 
 
 # ============================ web, network, dns ============================
+
+def _is_public_ip(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    return not any((
+        address.is_private,
+        address.is_loopback,
+        address.is_link_local,
+        address.is_reserved,
+        address.is_multicast,
+        address.is_unspecified,
+    ))
+
+
+def _resolve_public_addresses(host: str, port: int) -> list[tuple[str, int]]:
+    try:
+        infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    except (socket.gaierror, UnicodeError) as e:
+        raise ValueError("host could not be resolved") from e
+
+    addresses = []
+    for info in infos:
+        try:
+            address = ipaddress.ip_address(info[4][0])
+        except ValueError:
+            continue
+        if not _is_public_ip(address):
+            raise ValueError("private or non-public hosts are not allowed")
+        addresses.append((str(address), info[4][1]))
+    if not addresses:
+        raise ValueError("host could not be resolved")
+    return addresses
+
+
+def _validate_public_url(url: str) -> None:
+    try:
+        parsed = urlsplit(url)
+        hostname = parsed.hostname
+        port = parsed.port
+    except ValueError as e:
+        raise ValueError("invalid URL") from e
+    if parsed.scheme not in {"http", "https"} or not hostname:
+        raise ValueError("only absolute HTTP(S) URLs are allowed")
+    if parsed.username or parsed.password:
+        raise ValueError("URLs with embedded credentials are not allowed")
+    _resolve_public_addresses(hostname, port or (443 if parsed.scheme == "https" else 80))
+
+
+def _public_request(url: str, **kwargs):
+    current = url
+    history = []
+    for _ in range(10):
+        _validate_public_url(current)
+        response = httpx.get(current, follow_redirects=False, **kwargs)
+        if 300 <= response.status_code < 400 and response.headers.get("location"):
+            history.append(response)
+            current = urljoin(str(response.url), response.headers["location"])
+            continue
+        return response, history
+    raise ValueError("too many redirects")
 
 @mcp.tool()
 def qr_code(text: str) -> dict:
@@ -208,15 +278,15 @@ def qr_code(text: str) -> dict:
 @mcp.tool()
 def url_expand(url: str) -> dict:
     """Follow redirects and return the final URL plus the redirect chain."""
-    r = httpx.get(url, follow_redirects=True, headers=UA, timeout=15)
+    r, history = _public_request(url, headers=UA, timeout=15)
     return {"final_url": str(r.url), "status": r.status_code,
-            "chain": [str(h.url) for h in r.history]}
+            "chain": [str(h.url) for h in history]}
 
 
 @mcp.tool()
 def http_headers(url: str) -> dict:
     """Fetch the HTTP response headers for a URL."""
-    r = httpx.get(url, follow_redirects=True, headers=UA, timeout=15)
+    r, _ = _public_request(url, headers=UA, timeout=15)
     return {"status": r.status_code, "final_url": str(r.url), "headers": dict(r.headers)}
 
 
@@ -231,7 +301,9 @@ def dns_lookup(name: str, record: str = "A") -> dict:
 @mcp.tool()
 def whois_domain(domain: str) -> dict:
     """Domain registration info via RDAP (free). Returns registrar, key dates, and status."""
-    r = httpx.get(f"https://rdap.org/domain/{domain}", headers=UA, timeout=15, follow_redirects=True)
+    if not re.fullmatch(r"[A-Za-z0-9.-]+", domain):
+        raise ValueError("invalid domain")
+    r, _ = _public_request(f"https://rdap.org/domain/{quote(domain, safe='.-')}", headers=UA, timeout=15)
     r.raise_for_status()
     d = r.json()
     events = {e.get("eventAction"): e.get("eventDate") for e in d.get("events", [])}
@@ -243,10 +315,20 @@ def whois_domain(domain: str) -> dict:
 @mcp.tool()
 def ssl_cert_check(host: str, port: int = 443) -> dict:
     """Check a TLS certificate's issuer and expiry for host:port."""
+    port = int(port)
+    addresses = _resolve_public_addresses(host, port)
     ctx = ssl.create_default_context()
-    with socket.create_connection((host, int(port)), timeout=12) as sock:
-        with ctx.wrap_socket(sock, server_hostname=host) as ss:
-            cert = ss.getpeercert()
+    last_error = None
+    for address, resolved_port in addresses:
+        try:
+            with socket.create_connection((address, resolved_port), timeout=12) as sock:
+                with ctx.wrap_socket(sock, server_hostname=host) as ss:
+                    cert = ss.getpeercert()
+            break
+        except OSError as e:
+            last_error = e
+    else:
+        raise last_error
     not_after = cert.get("notAfter")
     exp = datetime.strptime(not_after, "%b %d %H:%M:%S %Y %Z").replace(tzinfo=timezone.utc)
     days = (exp - datetime.now(timezone.utc)).days
@@ -258,7 +340,11 @@ def ssl_cert_check(host: str, port: int = 443) -> dict:
 @mcp.tool()
 def ip_info(ip: str) -> dict:
     """Geolocation and network owner for an IP address (free ip-api.com)."""
-    r = httpx.get(f"http://ip-api.com/json/{ip}", headers=UA, timeout=12)
+    try:
+        ipaddress.ip_address(ip)
+    except ValueError as e:
+        raise ValueError("invalid IP address") from e
+    r = httpx.get(f"http://ip-api.com/json/{quote(ip, safe=':.')}", headers=UA, timeout=12)
     r.raise_for_status()
     d = r.json()
     return {"ip": ip, "country": d.get("country"), "region": d.get("regionName"),
@@ -326,10 +412,11 @@ class BearerAuth(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         if request.url.path == "/health":
             return await call_next(request)
-        if TOKEN:
-            auth = request.headers.get("authorization", "")
-            if auth != f"Bearer {TOKEN}":
-                return JSONResponse({"error": "unauthorized"}, status_code=401)
+        if not TOKEN:
+            return JSONResponse({"error": "authentication is not configured"}, status_code=503)
+        auth = request.headers.get("authorization", "")
+        if not secrets.compare_digest(auth, f"Bearer {TOKEN}"):
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
         return await call_next(request)
 
 
@@ -343,5 +430,5 @@ def build_app():
 if __name__ == "__main__":
     import uvicorn
     if not TOKEN:
-        print("WARNING: ARSENAL_MCP_TOKEN is empty; server is unauthenticated.")
+        print("ERROR: ARSENAL_MCP_TOKEN is required; non-health requests will be rejected.")
     uvicorn.run(build_app(), host="0.0.0.0", port=PORT)

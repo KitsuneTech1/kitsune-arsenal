@@ -10,6 +10,11 @@ def test_base64_round_trip():
     assert base64_tool(encoded["result"], mode="decode") == {"result": "hello"}
 
 
+def test_base64_decode_rejects_invalid_characters():
+    with pytest.raises(ValueError, match="not valid base64"):
+        base64_tool("%%%", mode="decode")
+
+
 @pytest.mark.parametrize("tool", [base64_tool, url_encode])
 def test_encoding_tools_reject_unknown_modes(tool):
     with pytest.raises(ValueError, match="mode must be encode or decode"):
@@ -29,3 +34,10 @@ def test_color_convert_returns_normalized_values():
         "g": 187,
         "b": 204,
     }
+
+
+def test_password_generation_rejects_unknown_kind():
+    from arsenal_mcp import password_gen
+
+    with pytest.raises(ValueError, match="kind must be password or passphrase"):
+        password_gen(kind="unknown")

@@ -29,7 +29,12 @@ def _qr(text: str) -> dict:
 def _hash(text: str, algo: str = "sha256") -> dict:
     if algo not in hashlib.algorithms_available:
         raise ValueError(f"unknown algo: {algo}")
-    return {"algo": algo, "hex": hashlib.new(algo, text.encode()).hexdigest()}
+    digest = hashlib.new(algo, text.encode())
+    try:
+        value = digest.hexdigest()
+    except TypeError as e:
+        raise ValueError(f"algorithm requires an explicit digest length: {algo}") from e
+    return {"algo": algo, "hex": value}
 
 
 def _uuid_gen(n: int = 1) -> dict:
@@ -79,7 +84,8 @@ def _register_all() -> None:
                   "read", {"text": "input", "algo": "algorithm, default sha256"},
                   lambda text, algo="sha256": _hash(text, algo)))
     register(Tool("uuid", "Generate one or more UUID v4s.", "Dev & Infra",
-                  "read", {"n": "how many, 1-100"}, lambda n=1: _uuid_gen(n)))
+                  "read", {"n": "how many, 1-100"}, lambda n=1: _uuid_gen(n),
+                  types={"n": "integer"}))
     register(Tool("slugify", "Turn any string into a URL-safe slug.", "Dev & Infra",
                   "read", {"text": "input"}, lambda text: _slug(text)))
     register(Tool("now", "Current UTC time as ISO and epoch.", "Dev & Infra",
