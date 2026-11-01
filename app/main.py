@@ -46,5 +46,7 @@ async def call(tool: str, request: Request):
         return {"tool": tool, "result": spec.run(**body)}
     except TypeError as e:
         raise HTTPException(400, f"bad params: {e}")
+    except ValueError as e:
+        raise HTTPException(400, f"bad params: {e}")
     except Exception as e:  # noqa: BLE001 - surface backend errors to the caller
         raise HTTPException(502, f"backend error: {e}")
