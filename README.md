@@ -1,17 +1,17 @@
 # Kitsune Arsenal
 
-A self-hosted capability gateway that wraps open-source and free public backends, exposing them as unified HTTP/MCP APIs.
+A self-hosted capability gateway that wraps local utilities and free public backends, exposing them as unified HTTP/MCP APIs.
 
 ## Overview
 
-Kitsune Arsenal is a FastAPI service that aggregates utilities across text/encoding, web/network, geolocation, and finance. Every tool is either a pure function (no dependencies) or proxies a free public API.
+Kitsune Arsenal is a FastAPI service that aggregates utilities across text/encoding, web/network, geolocation, and finance. Every gateway tool is either local or proxies a free public API.
 
 ## Features
 
 - Registry-based tool system: add a tool by writing one entry
 - FastAPI HTTP endpoint: `/tools` listing and `/call/{tool}` invocation
 - MCP (Model Context Protocol) manifest generation for agent integration
-- Self-hosted backend support via Docker Compose (libretranslate, searxng, etc.)
+- Optional LibreTranslate and SearXNG services in Docker Compose
 - Keyless design: no proprietary API keys required for core tools
 
 ## Architecture
@@ -33,8 +33,8 @@ requirements.txt
 ### Local Development
 
 ```bash
-pip install -r requirements.txt
-python -m uvicorn app.main:app --reload
+python -m pip install -r requirements.txt
+python -m uvicorn app.main:app
 ```
 
 Visit http://localhost:8000/tools to see available capabilities.
@@ -46,19 +46,31 @@ cp .env.example .env
 docker compose up
 ```
 
+In PowerShell, use `Copy-Item .env.example .env` instead of `cp`.
+
 Optional backends (libretranslate, searxng) can be started with:
 
 ```bash
 docker compose --profile lang --profile web up
 ```
 
+The optional services are included in the Compose file, but the current gateway tools do not call them.
+
 ### Standalone MCP Server
 
 The `arsenal_mcp.py` runs as a standalone MCP endpoint:
 
 ```bash
-pip install -r requirements-mcp.txt
-ARSENAL_MCP_TOKEN=<token> python arsenal_mcp.py
+python -m pip install -r requirements-mcp.txt
+# macOS or Linux
+ARSENAL_MCP_TOKEN=replace-with-a-token python arsenal_mcp.py
+```
+
+In PowerShell:
+
+```powershell
+$env:ARSENAL_MCP_TOKEN = "replace-with-a-token"
+python arsenal_mcp.py
 ```
 
 Endpoint at `http://localhost:8810/mcp` with `Authorization: Bearer <token>`.
