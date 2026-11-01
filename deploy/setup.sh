@@ -45,4 +45,4 @@ systemctl daemon-reload
 systemctl enable --now arsenal-mcp
 sleep 3
 systemctl is-active arsenal-mcp
-echo "TOKEN=$(grep ARSENAL_MCP_TOKEN "$APP/.env" | cut -d= -f2)"
+echo "arsenal-mcp is active; the bearer token remains in $APP/.env"

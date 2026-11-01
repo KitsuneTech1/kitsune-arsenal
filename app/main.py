@@ -39,7 +39,7 @@ async def call(tool: str, request: Request):
     try:
         body = await request.json()
     except Exception:
-        body = {}
+        raise HTTPException(400, "body must be valid JSON object of params")
     if not isinstance(body, dict):
         raise HTTPException(400, "body must be a JSON object of params")
     try:
@@ -48,5 +48,5 @@ async def call(tool: str, request: Request):
         raise HTTPException(400, f"bad params: {e}")
     except ValueError as e:
         raise HTTPException(400, f"bad params: {e}")
-    except Exception as e:  # noqa: BLE001 - surface backend errors to the caller
-        raise HTTPException(502, f"backend error: {e}")
+    except Exception:  # noqa: BLE001 - backend details must not cross the API boundary
+        raise HTTPException(502, "backend error")

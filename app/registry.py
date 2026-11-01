@@ -19,6 +19,7 @@ class Tool:
     replaces: str = ""      # the paid product this stands in for
     cost_usd_mo: int = 0    # indicative retail of that product
     keyless: bool = True    # true = no external key/backend needed
+    types: dict[str, str] = field(default_factory=dict)  # JSON Schema types by parameter name
 
 
 _REGISTRY: dict[str, Tool] = {}
