@@ -4,6 +4,7 @@
 
 Keyless gateway for tools: wraps local utilities and free public APIs as HTTP and MCP endpoints.
 
+[![Build Status](https://github.com/KitsuneTech1/kitsune-arsenal/actions/workflows/ci.yml/badge.svg)](https://github.com/KitsuneTech1/kitsune-arsenal/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 
 Kitsune Arsenal is a FastAPI service that aggregates utilities across text/encoding, web/network, geolocation, and finance. Every tool is either local or proxies a free public API. No proprietary keys required for core functionality.
@@ -16,6 +17,18 @@ Kitsune Arsenal is a FastAPI service that aggregates utilities across text/encod
 - 27 built-in tools covering text, encoding, web, network, geo, and finance
 - Optional LibreTranslate and SearXNG backends in Docker Compose
 - Bearer token authentication ready for edge deployment
+
+
+## Architecture & Data Flow
+
+```mermaid
+flowchart TD
+    A[Client / Agent Request] --> B[Arsenal Gateway HTTP & MCP Endpoint]
+    B --> C{Tool Router}
+    C --> D[Local System Tools: OCR, Screenshot, Hash, Encode]
+    C --> E[Free Public APIs: Weather, IP Geolocation, DNS]
+    D & E --> F[Standardized JSON / MCP Tool Response]
+```
 
 ## Quick start
 
