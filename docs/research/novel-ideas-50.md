@@ -7,7 +7,7 @@ Naming: "agent-native" means a human could not usefully call it by hand, or woul
 ---
 
 ## 1. Recall
-- Pitch: a shared long-term memory bus where any agent writes a fact once and every other agent (Claude, Codex, OpenCode) can query it later with provenance and confidence.
+- Pitch: a shared long-term memory bus where any agent writes a fact once and every other agent (different agents) can query it later with provenance and confidence.
 - Gap: memory today is per-tool and per-session. There is no neutral store that survives context compaction and is readable across harnesses, with who-said-it and when.
 - Who and hours: anyone running many agent sessions. One call replaces re-explaining the same project state to each new session, which is 20 to 40 minutes of re-priming per day across sessions.
 - Difficulty: medium. Agent-native: yes.
@@ -343,7 +343,7 @@ Naming: "agent-native" means a human could not usefully call it by hand, or woul
 - Nearest thing: monitoring and alerting. Metric thresholds humans set; this tracks an agent's own natural-language claims over time.
 
 ## 49. Ferry
-- Pitch: moves a task and its full context from one agent or harness to another cleanly, so a Claude session can hand off to a Codex session (or a human) mid-task without losing the thread.
+- Pitch: moves a task and its full context from one agent or harness to another cleanly, so an agent session can hand off to another agent session (or a human) mid-task without losing the thread.
 - Gap: handoff between harnesses means copy-pasting context by hand and losing state. There is no clean transfer primitive.
 - Who and hours: anyone using multiple harnesses. Replaces manual re-priming on every handoff, 10 to 30 minutes each.
 - Difficulty: medium. Agent-native: yes.
